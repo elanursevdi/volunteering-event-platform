@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Gönüllülük Projeleri</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<style>
+  body{font-family:Arial,sans-serif;margin:0;padding:0;background:#f4f6f9}
+  header{background:linear-gradient(to right,#6a11cb,#2575fc);padding:15px 30px;color:#fff;display:flex;justify-content:space-between;align-items:center}
+  header h1{margin:0;font-size:22px}
+  header nav a{color:#fff;margin-left:20px;text-decoration:none;font-weight:bold}
+
+  .content{display:flex;gap:20px;padding:20px;flex-wrap:wrap}
+  .map-container{flex:2;min-width:400px;height:450px;border-radius:10px;overflow:hidden}
+  .sidebar{flex:1;min-width:250px;background:#fff;padding:20px;border-radius:10px;box-shadow:0 2px 5px rgba(0,0,0,.1)}
+  .sidebar-header{font-size:14px;color:#555;margin-bottom:15px}
+  .search-box input{width:100%;padding:8px;border:1px solid #ccc;border-radius:6px}
+  .stats{display:flex;justify-content:space-around;margin:20px 0}
+  .stat-card{background:#f9f9ff;padding:15px;border-radius:10px;text-align:center;flex:1;margin:5px;box-shadow:0 1px 3px rgba(0,0,0,.1);cursor:pointer;transition:.3s}
+  .stat-card:hover{background:#eef}
+  .stat-card h3{margin:0;font-size:20px;color:#6a11cb}
+  .stat-card p{margin:5px 0 0;font-size:14px;color:#444}
+
+  .projects{max-width:900px;margin:0 auto 30px;background:#fff;padding:20px;border-radius:10px;box-shadow:0 2px 5px rgba(0,0,0,.1)}
+  .project{border-bottom:1px solid #eee;padding:12px 0;display:flex;justify-content:space-between;align-items:center}
+  .project:last-child{border-bottom:none}
+  .project-info{max-width:80%}
+  .join-btn{background:#ff4d6d;color:#fff;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;transition:.3s}
+  .join-btn:hover:not(:disabled){background:#e33b5c}
+  .join-btn:disabled{background:#ccc;cursor:not-allowed}
+
+  .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);justify-content:center;align-items:center;z-index:9999}
+  .modal>.box{background:#fff;padding:20px;border-radius:10px;width:320px}
+  .box input,.box textarea{width:100%;margin-bottom:10px;padding:8px}
+
+  /* Seç butonu için input grubu */
+  .input-group{display:flex;gap:5px}
+  .input-group button{padding:6px 12px;border:none;background:#6a11cb;color:#fff;border-radius:6px;cursor:pointer}
+  .input-group button:hover{background:#2575fc}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌍 Gönüllülük Projeleri</h1>
+  <nav>
+    <a href="#" onclick="onAdminClick()">Admin</a>
+    <a href="#" onclick="showLogin()">Login</a>
+    <a href="#" onclick="showSignup()">Sign Up</a>
+  </nav>
+</header>
+
+<div class="content">
+  <div class="map-container" id="map"></div>
+
+  <div class="sidebar">
+    <div class="sidebar-header"><strong>🔎 Proje Ara</strong></div>
+    <div class="search-box">
+      <input type="text" placeholder="Proje adı, şehir veya açıklama...">
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <h3 id="totalProjects">0</h3>
+        <p>Toplam Proje</p>
+      </div>
+      <div class="stat-card">
+        <h3 id="totalUsers">0</h3>
+        <p>Toplam Katılımcı</p>
+      </div>
+    </div>
+
+    <h3>En Çok Katılım Alan Projeler</h3>
+    <div id="topProjects"></div>
+  </div>
+</div>
+
+<div class="projects" id="projects">
+  <h2>Tüm Projeler</h2>
+  <div id="projectList"></div>
+</div>
+
+<!-- Login Modal -->
+<div id="loginModal" class="modal">
+  <div class="box">
+    <h3>Giriş Yap</h3>
+    <input type="text" id="username" placeholder="Kullanıcı Adı">
+    <input type="password" id="password" placeholder="Şifre">
+    <button onclick="login()">Giriş Yap</button>
+    <button onclick="hideLogin()">Kapat</button>
+  </div>
+</div>
+
+<!-- Sign Up Modal -->
+<div id="signupModal" class="modal">
+  <div class="box">
+    <h3>Kayıt Ol</h3>
+    <input type="text" id="su_username" placeholder="Kullanıcı Adı">
+    <input type="password" id="su_password" placeholder="Şifre">
+    <input type="email" id="su_email" placeholder="Email">
+    <button onclick="signup()">Kaydol</button>
+    <button onclick="hideSignup()">Kapat</button>
+  </div>
+</div>
+
+<!-- Admin Modal -->
+<div id="adminModal" class="modal">
+  <div class="box">
+    <h3>Yeni Proje Ekle</h3>
+    <input type="text" id="projName" placeholder="Proje Adı">
+    <input type="text" id="projCity" placeholder="Şehir">
+    <textarea id="projDesc" placeholder="Açıklama"></textarea>
+
+    <!-- Latitude ve Longitude Seçim -->
+    <div class="input-group">
+      <input type="text" id="projLat" placeholder="Latitude" readonly>
+      <button id="selectCoordsBtn">Seç</button>
+    </div>
+    <div class="input-group">
+      <input type="text" id="projLng" placeholder="Longitude" readonly>
+    </div>
+
+    <button onclick="addProject()">Kaydet</button>
+    <button onclick="hideAdmin()">Kapat</button>
+    <p style="font-size:12px;color:#666;margin-top:6px">Koordinat seçmek için "Seç" butonuna tıklayın ve haritaya tıklayın.</p>
+  </div>
+</div>
+
+<script>
+  /* HARİTA */
+  const map = L.map('map').setView([39.9208, 32.8541], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap' }).addTo(map);
+
+  let projectMarkers = [];
+  let selectionMarker = null;
+
+  /* Koordinat Seçme */
+  const selectBtn = document.getElementById("selectCoordsBtn");
+  selectBtn.addEventListener("click", () => {
+    hideAdmin(); // modal geçici olarak kapanır
+    alert("Haritaya tıklayın ve koordinatları seçin."); // kullanıcıyı bilgilendir
+  });
+
+  map.on("click", (e) => {
+    const adminOpen = document.getElementById("adminModal").style.display === "flex";
+    if(!adminOpen){
+      // Eğer admin modal kapalıysa, koordinat seçimi yapılacaksa aç
+      const latInput = document.getElementById("projLat");
+      const lngInput = document.getElementById("projLng");
+      if(latInput && lngInput && selectionMarker !== null){
+        // zaten seçilmişse önce kaldır
+        map.removeLayer(selectionMarker);
+        selectionMarker = null;
+      }
+      selectionMarker = L.marker(e.latlng).addTo(map);
+      latInput.value = e.latlng.lat.toFixed(6);
+      lngInput.value = e.latlng.lng.toFixed(6);
+      showAdmin(); // modal tekrar açılır
+      return;
+    }
+    // Eğer admin modal açıksa normal harita tıklaması (isteğe bağlı başka işlem)
+  });
+
+  /* STATE */
+  let currentUser = null;
+  let loggedIn = false;
+
+  /* MODAL */
+  function showLogin(){ document.getElementById("loginModal").style.display = "flex"; }
+  function hideLogin(){ document.getElementById("loginModal").style.display = "none"; }
+  function showSignup(){ document.getElementById("signupModal").style.display = "flex"; }
+  function hideSignup(){ document.getElementById("signupModal").style.display = "none"; }
+  function showAdmin(){ document.getElementById("adminModal").style.display = "flex"; }
+  function hideAdmin(){ document.getElementById("adminModal").style.display = "none"; }
+
+  function onAdminClick(){
+    if(!loggedIn){ alert("Önce giriş yapmalısınız."); return; }
+    if(!currentUser || currentUser.role !== "ADMIN"){ alert("Bu işlem için ADMIN yetkisi gerekir."); return; }
+    showAdmin();
+  }
+
+  /* AUTH */
+  async function login(){
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
+    if(!username || !password){ alert("Kullanıcı adı ve şifre giriniz."); return; }
+
+    try{
+      const res = await fetch("http://localhost:8080/api/users/login", {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      if(!res.ok){ alert("Giriş başarısız!"); return; }
+      currentUser = await res.json();
+      loggedIn = true;
+      hideLogin();
+      alert(`Hoşgeldin, ${currentUser.username}`);
+      loadProjects(); loadStats(); loadTopProjects();
+    }catch(err){ console.error(err); alert("Sunucu hatası!"); }
+  }
+
+  async function signup(){
+    const username = document.getElementById("su_username").value.trim();
+    const password = document.getElementById("su_password").value.trim();
+    const email = document.getElementById("su_email").value.trim();
+    if(!username || !password || !email){ alert("Bilgileri doldurun."); return; }
+
+    try{
+      const res = await fetch("http://localhost:8080/api/users/register", {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ username, password, email })
+      });
+      if(res.ok){ alert("Kayıt başarılı! Şimdi giriş yapabilirsiniz."); hideSignup(); }
+      else{ const msg = await res.text(); alert("Kayıt başarısız: " + msg); }
+    }catch(err){ console.error(err); alert("Sunucu hatası!"); }
+  }
+
+  /* PROJELER */
+  async function loadProjects(){
+    try{
+      const response = await fetch("http://localhost:8080/api/projects");
+      const projects = await response.json();
+      const projectList = document.getElementById("projectList");
+      projectList.innerHTML = "";
+
+      projectMarkers.forEach(m => map.removeLayer(m));
+      projectMarkers = [];
+
+      projects.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "project";
+        div.innerHTML = `
+          <div class="project-info">
+            <h3>${p.name} (${p.city})</h3>
+            <p>${p.description ?? ""}</p>
+          </div>
+          <button class="join-btn" onclick="joinProject(${p.id})" ${!loggedIn ? "disabled" : ""}>Katıl</button>
+        `;
+        projectList.appendChild(div);
+
+        if(p.latitude && p.longitude){
+          const mk = L.marker([p.latitude, p.longitude]).addTo(map).bindPopup(`${p.name} - ${p.city}`);
+          projectMarkers.push(mk);
+        }
+      });
+    }catch(e){ console.error("Projeler yüklenemedi", e); }
+  }
+
+  async function loadStats(){
+    try{
+      const res = await fetch("http://localhost:8080/api/projects/stats");
+      if(!res.ok) return;
+      const stats = await res.json();
+      document.getElementById("totalProjects").innerText = stats.activeProjects ?? 0;
+      document.getElementById("totalUsers").innerText = stats.totalParticipants ?? 0;
+    }catch(e){ console.error("İstatistik alınamadı", e); }
+  }
+
+  async function loadTopProjects(){
+    try{
+      const res = await fetch("http://localhost:8080/api/projects/top");
+      if(!res.ok) return;
+      let data = await res.json();
+      if(!Array.isArray(data)) data = [];
+
+      const norm = data.map(p => ({
+        id: p.id,
+        name: p.name ?? p.projectName ?? "Proje",
+        count: p.participationCount ?? p.participants ?? p.count ?? p.totalParticipants ?? 0
+      }));
+
+      const container = document.getElementById("topProjects");
+      container.innerHTML = "";
+
+      if(norm.length === 0){
+        container.innerHTML = '<div style="color:#666">Henüz katılım verisi yok.</div>';
+        return;
+      }
+
+      const max = Math.max(...norm.map(x => x.count), 1);
+
+      norm.forEach(x => {
+        const percent = Math.round((x.count / max) * 100);
+        const row = document.createElement("div");
+        row.style.margin = "10px 0";
+        row.innerHTML = `
+          <div style="font-weight:600">${x.name}
+            <span style="color:#666; font-weight:normal">(${x.count} kişi)</span>
+          </div>
+          <div style="height:8px;background:#eee;border-radius:4px;overflow:hidden">
+            <div style="height:8px;width:${percent}%;background:#6a11cb"></div>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }catch(e){ console.error("Top projects yüklenemedi", e); }
+  }
+
+  async function joinProject(id){
+    if(!loggedIn){ alert("Lütfen önce giriş yapın."); return; }
+    try{
+      const res = await fetch(`http://localhost:8080/api/projects/${id}/join?userId=${currentUser.id}`, { method:"POST" });
+      if(res.ok){ alert("Katılım başarılı!"); loadStats(); loadTopProjects(); }
+      else{ alert("Katılım başarısız!"); }
+    }catch(e){ console.error("Katılım hatası", e); }
+  }
+
+  async function addProject(){
+    if(!currentUser || currentUser.role !== "ADMIN"){ alert("Sadece ADMIN proje ekleyebilir!"); return; }
+    const name = document.getElementById("projName").value.trim();
+    const city = document.getElementById("projCity").value.trim();
+    const description = document.getElementById("projDesc").value.trim();
+    const lat = parseFloat(document.getElementById("projLat").value);
+    const lng = parseFloat(document.getElementById("projLng").value);
+    if(!name || !city || !description || isNaN(lat) || isNaN(lng)){ alert("Tüm alanları doldurun ve haritadan koordinat seçin!"); return; }
+
+    try{
+      const res = await fetch("http://localhost:8080/api/projects", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ name, city, description, latitude: lat, longitude: lng, createdBy: { id: currentUser.id } })
+      });
+      if(res.ok){
+        alert("Proje eklendi!");
+        hideAdmin();
+        if(selectionMarker){ map.removeLayer(selectionMarker); selectionMarker = null; }
+        loadProjects(); loadStats(); loadTopProjects();
+      }else{ alert("Proje eklenemedi!"); }
+    }catch(e){ console.error(e); alert("Sunucu hatası!"); }
+  }
+
+  /* İlk yükleme */
+  loadProjects();
+  loadStats();
+  loadTopProjects();
+</script>
+</body>
+</html>
+
+
+
+
+
+
